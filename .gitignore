@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+
+# Runtime data
+.data/
+.douyin-profile/
+
+# IDE
+.vscode/
+*.sublime-*
+
+# OS
+.DS_Store
+Thumbs.db
+*.log
+
+# Build
+dist/
+out/

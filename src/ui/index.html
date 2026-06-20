@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="./styles.css">
+  <title>抖音创作辅助工具</title>
+</head>
+<body>
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="main" id="main-content"></main>
+  <div id="toast" class="toast hidden"></div>
+
+  <!-- 组件库（按依赖顺序） -->
+  <script src="./components/sidebar.js"></script>
+  <script src="./components/dashboard.js"></script>
+  <script src="./components/analyze.js"></script>
+  <script src="./components/comment.js"></script>
+  <script src="./components/generate.js"></script>
+  <script src="./components/publish.js"></script>
+  <script src="./components/history.js"></script>
+  <script src="./renderer.js"></script>
+</body>
+</html>
