@@ -1,11 +1,16 @@
 {
   "name": "douyin-creator-tool",
   "version": "0.1.0",
-  "description": "抖音创作辅助工具",
+  "description": "抖音创作辅助工具 — Electron + Puppeteer 多账号自动化",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "dev": "electron . --dev"
+    "dev": "electron . --dev",
+    "lint": "node -e \"const p=require('path'),f=require('fs');const d='src';function w(p){try{f.readdirSync(p).forEach(c=>{const t=p+'/'+c;f.statSync(t).isDirectory()?w(t):c.endsWith('.js')&&console.log(t)})}catch(e){}}w(d)\"",
+    "clean": "node -e \"require('fs').rmSync('.data',{recursive:true,force:true});require('fs').rmSync('.profiles',{recursive:true,force:true});console.log('cleaned')\"",
+    "cli:login": "node src/core/index.js login",
+    "cli:accounts": "node src/core/index.js accounts",
+    "cli:analyze": "node src/core/index.js analyze"
   },
   "author": "",
   "license": "MIT",

@@ -3,10 +3,29 @@
 
 const puppeteer = require('puppeteer-core')
 const path = require('path')
+const fs = require('fs')
+const { Config } = require('./config')
 const sleep = (ms) => new Promise(r => setTimeout(r, ms))
 
-const CHROME_PATH = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
-const DEFAULT_PROFILE = path.join(__dirname, '..', '..', '.douyin-profile')
+const DEFAULT_PROFILE = Config.paths.oldProfile
+
+// 自动检测 Chrome 路径
+function detectChromePath () {
+  const candidates = [
+    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+    path.join(process.env.LOCALAPPDATA || '', 'Google\\Chrome\\Application\\chrome.exe'),
+    path.join(process.env.PROGRAMFILES || '', 'Google\\Chrome\\Application\\chrome.exe'),
+    '/usr/bin/google-chrome',
+    '/usr/bin/chromium-browser',
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+  ]
+  for (const p of candidates) {
+    if (fs.existsSync(p)) return p
+  }
+  return candidates[0] // fallback
+}
+const CHROME_PATH = detectChromePath()
 
 class DouyinClient {
   constructor () {
@@ -15,27 +34,20 @@ class DouyinClient {
     this._profileDir = DEFAULT_PROFILE
   }
 
-  /**
-   * 设置当前账号的 Puppeteer 独立配置目录
-   */
   setAccount (dir) {
     this._profileDir = dir || DEFAULT_PROFILE
   }
 
+  // ====== 浏览器启动 ======
   async init () {
     if (this.browser) return
-
     this.browser = await puppeteer.launch({
       executablePath: CHROME_PATH,
       headless: false,
-      defaultViewport: { width: 1280, height: 800 },
+      defaultViewport: Config.chrome.viewport,
       userDataDir: this._profileDir,
-      args: [
-        '--disable-blink-features=AutomationControlled',
-        '--no-sandbox'
-      ]
+      args: ['--disable-blink-features=AutomationControlled', '--no-sandbox']
     })
-
     this.page = await this.browser.newPage()
     await this.page.evaluateOnNewDocument(() => {
       Object.defineProperty(navigator, 'webdriver', { get: () => false })
@@ -46,22 +58,53 @@ class DouyinClient {
     )
   }
 
+  // ====== 通用工具 ======
+  async _goto (url) {
+    return this.page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 })
+  }
+
   async _checkLoggedIn () {
     try {
       const text = await this.page.evaluate(() => document.body.innerText)
       return !(text.includes('登录') && text.includes('手机号'))
-    } catch {
-      return false
+    } catch { return false }
+  }
+
+  async _requireLogin () {
+    const ok = await this._checkLoggedIn()
+    if (!ok) throw new Error('未登录，请在账号管理中登录')
+  }
+
+  async _typeText (selector, text, delay = 30) {
+    const el = await this.page.$(selector)
+    if (!el) return false
+    await el.click(); await sleep(300)
+    await el.type(text, { delay })
+    return true
+  }
+
+  async _fillTags (tags) {
+    if (!tags || tags.length === 0) return
+    for (const tag of tags.slice(0, 5)) {
+      const el = await this.page.$('input[placeholder*="标签"], input[placeholder*="话题"]')
+      if (!el) return
+      await el.click(); await sleep(200)
+      await el.type(tag, { delay: 30 })
+      await sleep(500); await this.page.keyboard.press('Enter'); await sleep(300)
     }
   }
 
+  async _clickPublish () {
+    const btn = await this.page.$('button:has-text("发布"), div:has-text("发布"):not(:has(*))')
+    if (btn) { await btn.click(); return true }
+    return false
+  }
+
+  // ====== 登录 ======
   async waitForLogin (timeoutMs = 120000) {
     await this.init()
-    await this.page.goto('https://www.douyin.com/?recommend=1', {
-      waitUntil: 'networkidle2', timeout: 30000
-    })
+    await this._goto('https://www.douyin.com/?recommend=1')
     await sleep(4000)
-
     if (await this._checkLoggedIn()) return { alreadyLoggedIn: true }
 
     console.log('⏳ 请在浏览器中登录抖音...')
@@ -73,31 +116,26 @@ class DouyinClient {
     throw new Error('登录超时')
   }
 
+  // ====== 视频信息提取 ======
   async getVideoInfo (url) {
     await this.init()
-    await this.page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 })
-    await sleep(4000)
-
+    await this._goto(url); await sleep(4000)
     return this.page.evaluate(() => {
-      const metaDesc = document.querySelector('meta[name="description"]')
-      const metaOg = document.querySelector('meta[property="og:description"]')
+      const md = document.querySelector('meta[name="description"]')
+      const og = document.querySelector('meta[property="og:description"]')
       const h1 = document.querySelector('h1')
       return {
-        title: h1?.textContent?.trim()
-          || metaDesc?.getAttribute('content')
-          || metaOg?.getAttribute('content')
-          || '',
+        title: h1?.textContent?.trim() || md?.getAttribute('content') || og?.getAttribute('content') || '',
         bodyText: document.body.innerText.substring(0, 2000),
         url: location.href
       }
     })
   }
 
+  // ====== 发表评论 ======
   async postComment (videoUrl, text) {
     await this.init()
-    await this.page.goto(videoUrl, { waitUntil: 'networkidle2', timeout: 30000 })
-    await sleep(5000)
-
+    await this._goto(videoUrl); await sleep(5000)
     try {
       const inputs = await this.page.$$('input')
       let inputEl = null
@@ -110,207 +148,79 @@ class DouyinClient {
         if (ph.includes('弹幕') || ph.includes('友好')) { inputEl = inp; break }
         if (rect.w > 100 && rect.h > 25 && rect.top > 500) inputEl = inp
       }
-
       if (!inputEl) return { success: false, error: '找不到弹幕输入框', hint: '请确认已登录' }
 
-      await inputEl.click()
-      await sleep(300)
-      await inputEl.type(text, { delay: 50 })
-      await sleep(500)
+      await inputEl.click(); await sleep(300)
+      await inputEl.type(text, { delay: 50 }); await sleep(500)
 
       const allEls = await this.page.$$('button, div, span')
       let sendBtn = null
       for (const el of allEls) {
         const txt = (await el.evaluate(el => el.textContent.trim())) || ''
-        if (txt === '发送') {
-          const vis = await el.evaluate(el => el.getBoundingClientRect().width > 0)
-          if (vis) { sendBtn = el; break }
+        if (txt === '发送' && (await el.evaluate(el => el.getBoundingClientRect().width > 0))) {
+          sendBtn = el; break
         }
       }
-
       if (sendBtn) { await sendBtn.click(); return { success: true, text } }
-      await this.page.keyboard.press('Enter')
-      await sleep(1000)
+      await this.page.keyboard.press('Enter'); await sleep(1000)
       return { success: true, text, method: 'enter' }
-    } catch (err) {
-      return { success: false, error: err.message }
-    }
+    } catch (err) { return { success: false, error: err.message } }
   }
 
-  // 发布视频到抖音
+  // ====== 等待上传完成（通用） ======
+  async _waitUpload (maxSeconds = 120) {
+    for (let i = 0; i < maxSeconds; i += 2) {
+      await sleep(2000)
+      const t = await this.page.evaluate(() => {
+        const el = document.querySelector('[class*="progress"]')
+        return el ? el.textContent : ''
+      }).catch(() => '')
+      if (t.includes('100') || t.includes('完成') || i > maxSeconds / 2) return true
+    }
+    await sleep(10000) // extra buffer
+    return true
+  }
+
+  // ====== 发布视频 ======
   async publishVideo ({ filePath, title, desc, tags }) {
-    await this.init()
-    const page = this.page
-
+    await this.init(); const page = this.page
     try {
-      // 前往创作者上传页面
-      await page.goto('https://www.douyin.com/upload', {
-        waitUntil: 'networkidle2', timeout: 30000
-      })
-      await sleep(5000)
+      await this._goto('https://www.douyin.com/upload'); await sleep(5000)
+      await this._requireLogin()
 
-      // 检查是否已登录
-      const text = await page.evaluate(() => document.body.innerText)
-      if (text.includes('登录') && text.includes('手机号')) {
-        return { success: false, error: '未登录，请先在账号管理登录', needLogin: true }
-      }
+      const fi = await page.$('input[type="file"]')
+      if (!fi) return { success: false, error: '找不到上传入口' }
+      await fi.uploadFile(filePath); await sleep(3000)
+      await this._waitUpload()
 
-      // 找到文件上传 input 并选择文件
-      const fileInput = await page.$('input[type="file"]')
-      if (!fileInput) return { success: false, error: '找不到上传入口' }
+      title && await this._typeText('input[placeholder*="标题"], input[class*="title"]', title)
+      desc && await this._typeText('textarea[placeholder*="描述"]', desc)
+      await this._fillTags(tags)
 
-      await fileInput.uploadFile(filePath)
-      await sleep(3000)
-
-      // 等待上传完成
-      let uploadDone = false
-      for (let i = 0; i < 60; i++) {
-        await sleep(2000)
-        const progress = await page.evaluate(() => {
-          const el = document.querySelector('[class*="progress"], [class*="upload"]')
-          return el ? el.textContent : ''
-        }).catch(() => '')
-        if (progress.includes('100') || progress.includes('完成') || i > 30) {
-          uploadDone = true
-          break
-        }
-      }
-
-      if (!uploadDone) {
-        // 继续等待
-        await sleep(10000)
-      }
-
-      // 填写标题
-      if (title) {
-        const titleInput = await page.$('input[placeholder*="标题"], input[class*="title"], [contenteditable="true"][placeholder*="标题"]')
-        if (titleInput) {
-          await titleInput.click()
-          await sleep(300)
-          await titleInput.type(title, { delay: 30 })
-        }
-      }
-
-      // 填写描述
-      if (desc) {
-        const descInput = await page.$('textarea[placeholder*="描述"], [contenteditable="true"][placeholder*="描述"]')
-        if (descInput) {
-          await descInput.click()
-          await sleep(300)
-          await descInput.type(desc, { delay: 20 })
-        }
-      }
-
-      // 添加标签
-      if (tags && tags.length > 0) {
-        for (const tag of tags.slice(0, 5)) {
-          const tagInput = await page.$('input[placeholder*="标签"], input[placeholder*="话题"]')
-          if (tagInput) {
-            await tagInput.click()
-            await sleep(200)
-            await tagInput.type(tag, { delay: 30 })
-            await sleep(500)
-            await page.keyboard.press('Enter')
-            await sleep(300)
-          }
-        }
-      }
-
-      // 点击发布
-      const publishBtn = await page.$('button:has-text("发布"), div:has-text("发布"):not(:has(*))')
-      if (publishBtn) {
-        await publishBtn.click()
-        return { success: true, title, desc, tags }
-      }
-
-      return { success: true, title, desc, tags, note: '文件已上传，请手动确认发布' }
-    } catch (err) {
-      return { success: false, error: err.message }
-    }
+      const clicked = await this._clickPublish()
+      return { success: true, title, desc, tags, needManualConfirm: !clicked }
+    } catch (err) { return { success: false, error: err.message } }
   }
 
-  // 发布图文到抖音
+  // ====== 发布图文 ======
   async publishImages ({ imagePaths, title, desc, tags }) {
-    await this.init()
-    const page = this.page
-
+    await this.init(); const page = this.page
     try {
-      // 前往图文创作页面
-      await page.goto('https://www.douyin.com/upload?type=image', {
-        waitUntil: 'networkidle2', timeout: 30000
-      })
-      await sleep(5000)
+      await this._goto('https://www.douyin.com/upload?type=image'); await sleep(5000)
+      await this._requireLogin()
 
-      // 检查登录
-      const text = await page.evaluate(() => document.body.innerText)
-      if (text.includes('登录') && text.includes('手机号')) {
-        return { success: false, error: '未登录，请先在账号管理登录', needLogin: true }
-      }
+      const fi = await page.$('input[type="file"]')
+      if (!fi) return { success: false, error: '找不到上传入口' }
+      await fi.uploadFile(...imagePaths); await sleep(4000)
+      await this._waitUpload()
 
-      // 找到文件上传 input（图片接受多文件）
-      const fileInput = await page.$('input[type="file"]')
-      if (!fileInput) return { success: false, error: '找不到上传入口' }
+      if (title) await this._typeText('input[placeholder*="标题"], [contenteditable="true"]', title)
+      if (desc) await this._typeText('textarea[placeholder*="描述"]', desc)
+      await this._fillTags(tags)
 
-      // 上传图片
-      await fileInput.uploadFile(...imagePaths)
-      await sleep(4000)
-
-      // 等待上传完成
-      for (let i = 0; i < 60; i++) {
-        await sleep(2000)
-        const progress = await page.evaluate(() => {
-          const el = document.querySelector('[class*="progress"]')
-          return el ? el.textContent : ''
-        }).catch(() => '')
-        if (progress.includes('100') || progress.includes('完成') || i > 25) break
-      }
-
-      // 填写标题
-      if (title) {
-        const titleInput = await page.$('input[placeholder*="标题"], [contenteditable="true"]')
-        if (titleInput) {
-          await titleInput.click()
-          await sleep(300)
-          await titleInput.type(title, { delay: 30 })
-        }
-      }
-
-      // 填写描述
-      if (desc) {
-        const descInput = await page.$('textarea[placeholder*="描述"]')
-        if (descInput) {
-          await descInput.click()
-          await sleep(300)
-          await descInput.type(desc, { delay: 20 })
-        }
-      }
-
-      // 添加标签
-      if (tags && tags.length > 0) {
-        for (const tag of tags.slice(0, 5)) {
-          const tagInput = await page.$('input[placeholder*="标签"], input[placeholder*="话题"]')
-          if (tagInput) {
-            await tagInput.click()
-            await sleep(200)
-            await tagInput.type(tag, { delay: 30 })
-            await sleep(500)
-            await page.keyboard.press('Enter')
-            await sleep(300)
-          }
-        }
-      }
-
-      // 点击发布
-      const publishBtn = await page.$('button:has-text("发布"), div:has-text("发布"):not(:has(*))')
-      if (publishBtn) {
-        await publishBtn.click()
-        return { success: true, title, desc, tags, type: 'image' }
-      }
-
-      return { success: true, title, desc, tags, type: 'image', note: '图片已上传，请手动确认发布' }
-    } catch (err) {
-      return { success: false, error: err.message }
-    }
+      const clicked = await this._clickPublish()
+      return { success: true, title, desc, tags, type: 'image', needManualConfirm: !clicked }
+    } catch (err) { return { success: false, error: err.message } }
   }
 
   async destroy () {

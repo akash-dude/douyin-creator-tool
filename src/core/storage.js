@@ -1,8 +1,9 @@
 // src/core/storage.js — 本地存储模块
 const fs = require('fs')
 const path = require('path')
+const { Config } = require('./config')
 
-const DB_PATH = path.join(__dirname, '..', '..', '.data', 'storage.json')
+const DB_PATH = Config.paths.storageFile
 
 class Storage {
   constructor () {
@@ -38,7 +39,9 @@ class Storage {
       ...entry
     }
     this._data.history.unshift(item)
-    if (this._data.history.length > 200) this._data.history.length = 200
+    if (this._data.history.length > Config.storage.maxHistory) {
+      this._data.history.length = Config.storage.maxHistory
+    }
     this._save()
     return item
   }

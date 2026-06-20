@@ -4,25 +4,29 @@
 const crypto = require('crypto')
 const fs = require('fs')
 const path = require('path')
+const { Config } = require('./config')
 
-const ACCOUNTS_FILE = path.join(__dirname, '..', '..', '.data', 'accounts.enc')
-const PROFILES_DIR = path.join(__dirname, '..', '..', '.profiles')
+const ACCOUNTS_FILE = Config.paths.accountsFile
+const PROFILES_DIR = Config.paths.profiles
 
 // ====== 加密工具 (AES-256-GCM) ======
 const ALGORITHM = 'aes-256-gcm'
-// 设备指纹作为派生密钥的种子（不完美但实用）
-const DEVICE_SEED = () => {
+// 设备指纹（懒加载缓存）
+let _deviceSeed = null
+function getDeviceSeed () {
+  if (_deviceSeed) return _deviceSeed
   const parts = [
     process.env.COMPUTERNAME || '',
     process.env.USERNAME || '',
-    fs.existsSync('C:\\') ? 'win' : 'nix',
+    process.platform,
     require('os').arch()
   ]
-  return crypto.createHash('sha256').update(parts.join('|')).digest()
+  _deviceSeed = crypto.createHash('sha256').update(parts.join('|')).digest()
+  return _deviceSeed
 }
 
 function encrypt (plaintext) {
-  const key = DEVICE_SEED()
+  const key = getDeviceSeed()
   const iv = crypto.randomBytes(16)
   const cipher = crypto.createCipheriv(ALGORITHM, key, iv)
   const encrypted = Buffer.concat([cipher.update(plaintext, 'utf-8'), cipher.final()])
@@ -31,7 +35,7 @@ function encrypt (plaintext) {
 }
 
 function decrypt (packed) {
-  const key = DEVICE_SEED()
+  const key = getDeviceSeed()
   const decipher = crypto.createDecipheriv(ALGORITHM, key, Buffer.from(packed.iv, 'hex'))
   decipher.setAuthTag(Buffer.from(packed.tag, 'hex'))
   const decrypted = Buffer.concat([
@@ -164,9 +168,8 @@ class AccountManager {
       fs.rmSync(PROFILES_DIR, { recursive: true, force: true })
     }
     // 清除旧的统一配置目录
-    const oldProfile = path.join(__dirname, '..', '..', '.douyin-profile')
-    if (fs.existsSync(oldProfile)) {
-      fs.rmSync(oldProfile, { recursive: true, force: true })
+    if (fs.existsSync(Config.paths.oldProfile)) {
+      fs.rmSync(Config.paths.oldProfile, { recursive: true, force: true })
     }
     if (fs.existsSync(ACCOUNTS_FILE)) {
       fs.unlinkSync(ACCOUNTS_FILE)
