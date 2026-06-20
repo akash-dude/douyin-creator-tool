@@ -37,8 +37,12 @@ class DouyinClient {
   }
 
   async _checkLoggedIn () {
-    const text = await this.page.evaluate(() => document.body.innerText)
-    return !(text.includes('登录') && text.includes('手机号'))
+    try {
+      const text = await this.page.evaluate(() => document.body.innerText)
+      return !(text.includes('登录') && text.includes('手机号'))
+    } catch {
+      return false // 页面不可用时视为未登录
+    }
   }
 
   async waitForLogin (timeoutMs = 120000) {
