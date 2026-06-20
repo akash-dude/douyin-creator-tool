@@ -1,15 +1,25 @@
 // src/core/douyin.js — 抖音自动化模块 (Puppeteer)
+// 支持多账号：通过 setAccount() 切换独立配置目录
+
 const puppeteer = require('puppeteer-core')
 const path = require('path')
 const sleep = (ms) => new Promise(r => setTimeout(r, ms))
 
 const CHROME_PATH = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
-const PROFILE_DIR = path.join(__dirname, '..', '..', '.douyin-profile')
+const DEFAULT_PROFILE = path.join(__dirname, '..', '..', '.douyin-profile')
 
 class DouyinClient {
   constructor () {
     this.browser = null
     this.page = null
+    this._profileDir = DEFAULT_PROFILE
+  }
+
+  /**
+   * 设置当前账号的 Puppeteer 独立配置目录
+   */
+  setAccount (dir) {
+    this._profileDir = dir || DEFAULT_PROFILE
   }
 
   async init () {
@@ -19,7 +29,7 @@ class DouyinClient {
       executablePath: CHROME_PATH,
       headless: false,
       defaultViewport: { width: 1280, height: 800 },
-      userDataDir: PROFILE_DIR,
+      userDataDir: this._profileDir,
       args: [
         '--disable-blink-features=AutomationControlled',
         '--no-sandbox'
@@ -41,7 +51,7 @@ class DouyinClient {
       const text = await this.page.evaluate(() => document.body.innerText)
       return !(text.includes('登录') && text.includes('手机号'))
     } catch {
-      return false // 页面不可用时视为未登录
+      return false
     }
   }
 
@@ -89,7 +99,6 @@ class DouyinClient {
     await sleep(5000)
 
     try {
-      // 找弹幕输入框
       const inputs = await this.page.$$('input')
       let inputEl = null
       for (const inp of inputs) {
@@ -109,7 +118,6 @@ class DouyinClient {
       await inputEl.type(text, { delay: 50 })
       await sleep(500)
 
-      // 找发送按钮
       const allEls = await this.page.$$('button, div, span')
       let sendBtn = null
       for (const el of allEls) {
@@ -124,6 +132,98 @@ class DouyinClient {
       await this.page.keyboard.press('Enter')
       await sleep(1000)
       return { success: true, text, method: 'enter' }
+    } catch (err) {
+      return { success: false, error: err.message }
+    }
+  }
+
+  // 发布视频到抖音
+  async publishVideo ({ filePath, title, desc, tags }) {
+    await this.init()
+    const page = this.page
+
+    try {
+      // 前往创作者上传页面
+      await page.goto('https://www.douyin.com/upload', {
+        waitUntil: 'networkidle2', timeout: 30000
+      })
+      await sleep(5000)
+
+      // 检查是否已登录
+      const text = await page.evaluate(() => document.body.innerText)
+      if (text.includes('登录') && text.includes('手机号')) {
+        return { success: false, error: '未登录，请先在账号管理登录', needLogin: true }
+      }
+
+      // 找到文件上传 input 并选择文件
+      const fileInput = await page.$('input[type="file"]')
+      if (!fileInput) return { success: false, error: '找不到上传入口' }
+
+      await fileInput.uploadFile(filePath)
+      await sleep(3000)
+
+      // 等待上传完成
+      let uploadDone = false
+      for (let i = 0; i < 60; i++) {
+        await sleep(2000)
+        const progress = await page.evaluate(() => {
+          const el = document.querySelector('[class*="progress"], [class*="upload"]')
+          return el ? el.textContent : ''
+        }).catch(() => '')
+        if (progress.includes('100') || progress.includes('完成') || i > 30) {
+          uploadDone = true
+          break
+        }
+      }
+
+      if (!uploadDone) {
+        // 继续等待
+        await sleep(10000)
+      }
+
+      // 填写标题
+      if (title) {
+        const titleInput = await page.$('input[placeholder*="标题"], input[class*="title"], [contenteditable="true"][placeholder*="标题"]')
+        if (titleInput) {
+          await titleInput.click()
+          await sleep(300)
+          await titleInput.type(title, { delay: 30 })
+        }
+      }
+
+      // 填写描述
+      if (desc) {
+        const descInput = await page.$('textarea[placeholder*="描述"], [contenteditable="true"][placeholder*="描述"]')
+        if (descInput) {
+          await descInput.click()
+          await sleep(300)
+          await descInput.type(desc, { delay: 20 })
+        }
+      }
+
+      // 添加标签
+      if (tags && tags.length > 0) {
+        for (const tag of tags.slice(0, 5)) {
+          const tagInput = await page.$('input[placeholder*="标签"], input[placeholder*="话题"]')
+          if (tagInput) {
+            await tagInput.click()
+            await sleep(200)
+            await tagInput.type(tag, { delay: 30 })
+            await sleep(500)
+            await page.keyboard.press('Enter')
+            await sleep(300)
+          }
+        }
+      }
+
+      // 点击发布
+      const publishBtn = await page.$('button:has-text("发布"), div:has-text("发布"):not(:has(*))')
+      if (publishBtn) {
+        await publishBtn.click()
+        return { success: true, title, desc, tags }
+      }
+
+      return { success: true, title, desc, tags, note: '文件已上传，请手动确认发布' }
     } catch (err) {
       return { success: false, error: err.message }
     }

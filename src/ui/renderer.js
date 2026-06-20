@@ -26,6 +26,7 @@ const App = {
     comment: Comment,
     generate: Generate,
     publish: Publish,
+    accounts: Accounts,
     history: History
   },
 
@@ -93,6 +94,16 @@ const App = {
           </div>
         `).join('')
     } catch (_) {}
+  },
+
+  // 供其他组件调用：刷新评论区登录状态
+  async _refreshLoginUI () {
+    const el = document.querySelector('#login-status')
+    if (!el) return
+    // 简单处理：切换账号后提示重新登录
+    el.textContent = '🟡 账号已切换，请重新登录'
+    document.getElementById('btn-login').textContent = '登录抖音'
+    document.getElementById('btn-comment').disabled = true
   }
 }
 

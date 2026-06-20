@@ -6,9 +6,10 @@ const Sidebar = {
     const items = [
       { view: 'dashboard', icon: '📊', label: '工作台' },
       { view: 'analyze',   icon: '🔍', label: '视频分析' },
-      { view: 'comment',   icon: '💬', label: '评论发布' },
+      { view: 'comment',   icon: '💬', label: '发表评论' },
       { view: 'generate',  icon: '✍️', label: '文案生成' },
-      { view: 'publish',   icon: '🚀', label: '发布管理' },
+      { view: 'publish',   icon: '📤', label: '发表作品' },
+      { view: 'accounts',  icon: '👤', label: '账号管理' },
       { view: 'history',   icon: '📋', label: '历史记录' }
     ]
 

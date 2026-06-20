@@ -1,9 +1,10 @@
-# Dependencies
+﻿# Dependencies
 node_modules/
 
 # Runtime data
 .data/
 .douyin-profile/
+.profiles/
 
 # IDE
 .vscode/

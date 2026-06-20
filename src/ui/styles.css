@@ -152,6 +152,109 @@ select.input { appearance: none; cursor: pointer; }
 .history-summary { color: var(--text); word-break: break-all; }
 .empty-state { color: var(--text-2); text-align: center; padding: 40px; }
 
+/* ========== Accounts ========== */
+.accounts-toolbar { display: flex; gap: 10px; margin-bottom: 20px; }
+
+.account-list { display: flex; flex-direction: column; gap: 10px; }
+.account-card {
+  display: flex; align-items: center; gap: 16px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 16px 20px;
+  transition: border-color 0.15s;
+}
+.account-card:hover { border-color: var(--primary); }
+.account-card.active { border-color: var(--primary); background: var(--surface-2); }
+
+.account-avatar {
+  width: 44px; height: 44px; min-width: 44px;
+  border-radius: 50%; background: linear-gradient(135deg, #667eea, #764ba2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; font-weight: 700; color: #fff;
+}
+
+.account-info { flex: 1; min-width: 0; }
+.account-name { font-size: 16px; font-weight: 600; }
+.account-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; font-size: 12px; color: var(--text-2); }
+
+.account-actions { display: flex; gap: 8px; align-items: center; }
+.badge-active {
+  display: inline-block; padding: 3px 12px;
+  border-radius: 10px; font-size: 12px; font-weight: 600;
+  background: #22c55e; color: #fff;
+}
+.btn-sm { padding: 5px 14px; font-size: 12px; }
+.btn-danger { background: var(--accent); color: #fff; border: none; }
+.btn-danger:hover { opacity: 0.85; }
+
+/* ========== Modal ========== */
+.modal { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; }
+.modal.hidden { display: none; }
+.modal-backdrop {
+  position: absolute; inset: 0; background: rgba(0,0,0,0.6);
+  cursor: pointer;
+}
+.modal-content {
+  position: relative; width: 400px; max-width: 90vw;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 28px 32px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+.modal-content h3 { font-size: 20px; margin-bottom: 20px; }
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+/* ========== Progress Bar ========== */
+.progress-bar {
+  width: 240px; height: 4px; background: var(--border);
+  border-radius: 2px; margin: 16px auto 0; overflow: hidden;
+}
+.progress-fill {
+  width: 30%; height: 100%;
+  background: linear-gradient(90deg, var(--primary), var(--accent));
+  border-radius: 2px;
+  animation: progress-indeterminate 1.5s ease-in-out infinite;
+}
+@keyframes progress-indeterminate {
+  0% { transform: translateX(-100%); width: 30%; }
+  50% { width: 60%; }
+  100% { transform: translateX(400%); width: 30%; }
+}
+
+/* ========== Extra ========== */
+.btn-outline {
+  background: transparent; color: var(--text-2);
+  border: 1px solid var(--border);
+}
+.btn-outline:hover { border-color: var(--primary); color: var(--text); }
+.btn-large { padding: 14px 40px; font-size: 16px; width: 100%; }
+.error-state { color: var(--accent); text-align: center; padding: 40px; }
+
+/* ========== Account Selector ========== */
+.account-selector {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  margin-bottom: 20px;
+}
+.account-selector .label { margin: 0; white-space: nowrap; font-size: 14px; }
+.account-select-input { max-width: 280px; }
+.account-status { font-size: 13px; color: var(--text-2); }
+
+/* ========== File Upload ========== */
+.file-upload {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius); padding: 40px 20px;
+  text-align: center; cursor: pointer;
+  transition: all 0.2s;
+}
+.file-upload:hover { border-color: var(--primary); background: var(--surface); }
+.file-upload-placeholder p { margin-top: 8px; font-size: 14px; }
+.file-info { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; }
+.file-info.hidden { display: none; }
+
+/* ========== Publish Form ========== */
+.publish-form { max-width: 600px; }
+.publish-actions { margin-top: 24px; }
+
 /* ========== Toast ========== */
 .toast {
   position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
