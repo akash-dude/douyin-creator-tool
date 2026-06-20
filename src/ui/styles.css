@@ -255,6 +255,23 @@ select.input { appearance: none; cursor: pointer; }
 .publish-form { max-width: 600px; }
 .publish-actions { margin-top: 24px; }
 
+/* ========== Publish Tabs ========== */
+.publish-tabs {
+  display: flex; gap: 0; margin-bottom: 24px;
+  background: var(--surface); border-radius: var(--radius-sm);
+  border: 1px solid var(--border); overflow: hidden;
+}
+.publish-tab {
+  flex: 1; padding: 12px; border: none;
+  background: transparent; color: var(--text-2);
+  font-size: 14px; font-weight: 600; cursor: pointer;
+  transition: all 0.15s;
+}
+.publish-tab:hover { background: var(--surface-2); color: var(--text); }
+.publish-tab.active {
+  background: var(--primary); color: #fff;
+}
+
 /* ========== Toast ========== */
 .toast {
   position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);

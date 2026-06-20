@@ -93,6 +93,15 @@ function setupIPC () {
     return e.publishVideo(params)
   })
 
+  ipcMain.handle('douyin:publish-images', async (_event, params) => {
+    if (!params || !params.imagePaths || params.imagePaths.length === 0) {
+      throw new Error('请选择图片')
+    }
+    const e = getEngine()
+    await e.init()
+    return e.publishImages(params)
+  })
+
   // ======== AI ========
   ipcMain.handle('ai:generate', async (_event, { type, input }) => {
     const e = getEngine()

@@ -92,6 +92,15 @@ class CoreEngine {
     return this.douyin.publishVideo({ filePath, title, desc, tags })
   }
 
+  async publishImages ({ accountId, imagePaths, title, desc, tags }) {
+    if (accountId) {
+      this.accounts.switchTo(accountId)
+      const account = this.accounts.getActive()
+      if (account) this.douyin.setAccount(account.profileDir)
+    }
+    return this.douyin.publishImages({ imagePaths, title, desc, tags })
+  }
+
   // === AI ===
   async generate (type, input) {
     return this.ai.generate(type, input)
