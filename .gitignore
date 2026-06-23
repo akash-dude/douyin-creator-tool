@@ -18,3 +18,11 @@ Thumbs.db
 # Build
 dist/
 out/
+
+# Python backend
+python-backend/.env
+python-backend/.data/
+python-backend/__pycache__/
+python-backend/**/__pycache__/
+python-backend/*.egg-info/
+

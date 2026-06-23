@@ -44,9 +44,10 @@ const App = {
     } catch (_) {}
   },
 
-  _renderLayout () {
+  async _renderLayout () {
     document.getElementById('sidebar').innerHTML = Sidebar.render('dashboard')
-    document.getElementById('main-content').innerHTML = this.views.dashboard.render()
+    const html = await this.views.dashboard.render()
+    document.getElementById('main-content').innerHTML = html
   },
 
   _bindNav () {
@@ -69,9 +70,10 @@ const App = {
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'))
     document.querySelector(`.nav-item[data-view="${view}"]`)?.classList.add('active')
 
-    // 渲染视图
+    // 渲染视图（支持异步 render）
     const component = this.views[view]
-    document.getElementById('main-content').innerHTML = component.render()
+    const html = await component.render()
+    document.getElementById('main-content').innerHTML = html
 
     // 挂载事件
     if (component.onMount) component.onMount()

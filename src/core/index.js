@@ -102,8 +102,9 @@ class CoreEngine {
   }
 
   // === AI ===
-  async generate (type, input) {
-    return this.ai.generate(type, input)
+  async generate (params) {
+    // params: { type, topic, reference, prompt, prompt_id, system_prompt, temperature, max_tokens }
+    return this.ai.generate(params)
   }
 
   // === 存储 ===

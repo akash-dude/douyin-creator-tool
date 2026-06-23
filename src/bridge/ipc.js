@@ -32,7 +32,6 @@ function setupIPC () {
     return e.addAccount({ name, username })
   })
 
-  // 添加账号 + 自动登录
   ipcMain.handle('accounts:add-and-login', async (_event, { name }) => {
     const e = getEngine()
     await e.init()
@@ -102,11 +101,20 @@ function setupIPC () {
     return e.publishImages(params)
   })
 
-  // ======== AI ========
-  ipcMain.handle('ai:generate', async (_event, { type, input }) => {
+  // ======== AI 生成 ========
+  // 前端传参：
+  //   { type, topic, reference, prompt, prompt_id, system_prompt, temperature, max_tokens }
+  ipcMain.handle('ai:generate', async (_event, params) => {
     const e = getEngine()
     await e.init()
-    return e.generate(type, input)
+    return e.generate(params)
+  })
+
+  // ======== 提示词列表（由 AI 后端管理） ========
+  ipcMain.handle('ai:list-prompts', async () => {
+    const e = getEngine()
+    await e.init()
+    return e.ai.listPrompts()
   })
 
   // ======== 历史记录 ========
